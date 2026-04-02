@@ -14,7 +14,7 @@
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
         .clickable { pointer-events: auto; }
 
-        /* メニュー類 */
+        /* UI配置 */
         .building-menu { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 6px; }
         .mode-menu { position: absolute; top: 130px; left: 10px; display: flex; flex-direction: column; gap: 6px; }
         .lang-menu { position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; }
@@ -24,13 +24,11 @@
             cursor: pointer; font-size: 13px; box-shadow: 0 2px 5px rgba(0,0,0,0.25);
         }
 
-        /* 下部ボタン */
-        .bottom-bar { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 20px; }
-        .btn-circle { width: 60px; height: 60px; border-radius: 50%; border: none; background: white; font-size: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer; }
+        .bottom-bar { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 15px; }
+        .btn-circle { width: 55px; height: 55px; border-radius: 50%; border: none; background: white; font-size: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer; }
 
-        /* 説明パネル */
         #desc-panel { 
-            position: absolute; bottom: 0; width: 100%; height: 40%; background: rgba(0, 0, 0, 0.8); 
+            position: absolute; bottom: 0; width: 100%; height: 40%; background: rgba(0, 0, 0, 0.85); 
             color: white; border-radius: 20px 20px 0 0; display: none; padding: 20px; box-sizing: border-box; 
         }
         .scroll-box { overflow-y: auto; height: 80%; margin-top: 10px; line-height: 1.6; }
@@ -38,7 +36,7 @@
 
         #status-box { 
             position: absolute; top: 10px; left: 50%; transform: translateX(-50%); 
-            background: rgba(0,0,0,0.55); color: #fff; padding: 8px 14px; border-radius: 999px; font-size: 12px; pointer-events: none; 
+            background: rgba(0,0,0,0.6); color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 11px; pointer-events: none; 
         }
     </style>
 </head>
@@ -63,7 +61,7 @@
             <button onclick="updateContent('zh')">CN</button>
         </div>
 
-        <div id="status-box">GPS表示 (調整中)</div>
+        <div id="status-box">読み込み中...</div>
 
         <div class="bottom-bar clickable">
             <button class="btn-circle" onclick="takeSnapshot()">📸</button>
@@ -75,8 +73,8 @@
 
         <div id="desc-panel" class="clickable">
             <button class="close-btn" onclick="toggleInfo()">×</button>
-            <h2 id="panel-title">旧西置賜郡役所</h2>
-            <div class="scroll-box"><p id="panel-text">説明文がここに表示されます。</p></div>
+            <h2 id="panel-title">タイトル</h2>
+            <div class="scroll-box"><p id="panel-text">説明文</p></div>
         </div>
     </div>
 
@@ -84,48 +82,30 @@
         vr-mode-ui="enabled: false"
         embedded
         arjs="sourceType: webcam; debugUIEnabled: false;"
-        renderer="logarithmicDepthBuffer: true;"
+        renderer="logarithmicDepthBuffer: true; precision: mediump; antialias: false; alpha: true;"
         gesture-detector
         gltf-model="dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.6/;"
     >
         <a-assets>
-            <a-asset-item id="building-model" src="Buildings-v3.glb"></a-asset-item>
+            <a-asset-item id="main-model" src="Buildings-v3.glb"></a-asset-item>
         </a-assets>
 
         <a-entity id="gps-anchor" gps-entity-place="latitude: 38.110949; longitude: 140.036418;" visible="true">
-            <a-entity
-                id="gps-model"
-                gltf-model="#building-model"
-                scale="1 1 1"
-                class="clickable"
-                gesture-handler
-            ></a-entity>
+            <a-entity gltf-model="#main-model" scale="1 1 1" class="clickable" gesture-handler></a-entity>
         </a-entity>
 
-        <a-entity id="free-anchor" position="0 0 -5" visible="false">
-            <a-entity
-                id="free-model"
-                gltf-model="#building-model"
-                scale="0.5 0.5 0.5"
-                class="clickable"
-                gesture-handler
-            ></a-entity>
+        <a-entity id="free-anchor" position="0 0 -8" visible="false">
+            <a-entity gltf-model="#main-model" scale="0.8 0.8 0.8" rotation="0 45 0" class="clickable" gesture-handler></a-entity>
         </a-entity>
 
         <a-camera gps-camera rotation-reader></a-camera>
     </a-scene>
 
     <script>
-        /* --- 変数・設定 --- */
-        let currentDisplayMode = "gps";
-        let currentBuilding = "kozakukan";
-        let currentLang = "jp";
-        let currentAudio = new Audio();
-
-        const buildingData = {
+        const bData = {
             kozakukan: {
                 gps: { lat: 38.1109497, lon: 140.0364184 },
-                jp: { title: "旧西置賜郡役所", text: "1878年に建てられた擬洋風建築です...", audio: "Kozakura_Japanese.wav" },
+                jp: { title: "旧西置賜郡役所（小桜館）", text: "1878年に建てられた擬洋風建築です...", audio: "Kozakura_Japanese.wav" },
                 en: { title: "Former District Office", text: "Built in 1878...", audio: "Kozakura_English.wav" },
                 ko: { title: "구 니시오키타마군 역소", text: "1878년에 세워진...", audio: "Kozakura_Korean.wav" },
                 zh: { title: "旧西置赐郡公署", text: "建于1878年...", audio: "Kozakura_Chinese.wav" }
@@ -133,67 +113,78 @@
             firstAssemblyHall: {
                 gps: { lat: 38.1109497, lon: 140.0364184 },
                 jp: { title: "初代郡会議事堂", text: "明治20年に建てられました...", audio: "1st_Japanese.wav" },
-                // ... 他言語略
+                en: { title: "1st Assembly Hall", text: "Built in 1887...", audio: "1st_English.wav" },
+                ko: { title: "초대 회의사당", text: "1887년에...", audio: "1st_Korean.wav" },
+                zh: { title: "第一代议事堂", text: "1887年...", audio: "1st_Chinese.wav" }
+            },
+            secondAssemblyHall: {
+                gps: { lat: 38.1109497, lon: 140.0364184 },
+                jp: { title: "二代目郡会議事堂", text: "明治44年に建てられました...", audio: "2nd_Japanese.wav" },
+                en: { title: "2nd Assembly Hall", text: "Built in 1911...", audio: "2nd_English.wav" },
+                ko: { title: "2대 회의사당", text: "1911년에...", audio: "2nd_Korean.wav" },
+                zh: { title: "第二代议事堂", text: "1911年...", audio: "2nd_Chinese.wav" }
             }
         };
 
-        /* --- 関数類 --- */
+        let curBuild = 'kozakukan';
+        let curLang = 'jp';
+        let audioObj = new Audio();
+
         function updateContent(lang) {
-            currentLang = lang;
-            const data = buildingData[currentBuilding][lang] || buildingData[currentBuilding].jp;
-            document.getElementById("panel-title").innerText = data.title;
-            document.getElementById("panel-text").innerText = data.text;
+            curLang = lang;
+            const d = bData[curBuild][lang] || bData[curBuild].jp;
+            document.getElementById("panel-title").innerText = d.title;
+            document.getElementById("panel-text").innerText = d.text;
             document.getElementById("desc-panel").style.display = "block";
-            playCurrentAudio();
         }
 
         function setBuilding(key) {
-            currentBuilding = key;
-            const coords = buildingData[key].gps;
-            document.getElementById("gps-anchor").setAttribute("gps-entity-place", `latitude: ${coords.lat}; longitude: ${coords.lon};`);
-            updateContent(currentLang);
+            curBuild = key;
+            const c = bData[key].gps;
+            document.getElementById("gps-anchor").setAttribute("gps-entity-place", `latitude: ${c.lat}; longitude: ${c.lon};`);
+            updateContent(curLang);
         }
 
         function setDisplayMode(mode) {
-            currentDisplayMode = mode;
             const gps = document.getElementById("gps-anchor");
             const free = document.getElementById("free-anchor");
-            if (mode === "gps") {
+            if (mode === 'gps') {
                 gps.setAttribute("visible", true);
                 free.setAttribute("visible", false);
             } else {
                 gps.setAttribute("visible", false);
                 free.setAttribute("visible", true);
             }
-            document.getElementById("status-box").innerText = mode === "gps" ? "GPS表示" : "自由表示";
+            document.getElementById("status-box").innerText = (mode === 'gps' ? "GPS表示" : "自由表示");
         }
 
         function playCurrentAudio() {
-            const data = buildingData[currentBuilding][currentLang] || buildingData[currentBuilding].jp;
-            if (data.audio) {
-                currentAudio.src = "audio/" + data.audio;
-                currentAudio.play().catch(e => console.log("Audio play blocked"));
+            const d = bData[curBuild][curLang] || bData[curBuild].jp;
+            if (d.audio) {
+                audioObj.pause();
+                audioObj.src = "audio/" + d.audio;
+                audioObj.play().catch(e => console.log("Audio Error"));
             }
         }
 
         function toggleInfo() {
             const p = document.getElementById("desc-panel");
-            p.style.display = p.style.display === "none" ? "block" : "none";
+            p.style.display = (p.style.display === "none") ? "block" : "none";
         }
 
         function takeSnapshot() {
             const scene = document.querySelector("a-scene");
             const canvas = scene.components.screenshot.getCanvas("perspective");
             const link = document.createElement("a");
-            link.download = "AR_Snapshot.png";
+            link.download = "Bunkyo_AR.png";
             link.href = canvas.toDataURL();
             link.click();
         }
 
-        // 初期化
         window.onload = () => {
             setBuilding('kozakukan');
-            setDisplayMode('gps');
+            setDisplayMode('free'); // 起動時は自由表示で確実にモデルを見せる
+            document.getElementById("status-box").innerText = "自由表示モードで起動しました";
         };
     </script>
 </body>
