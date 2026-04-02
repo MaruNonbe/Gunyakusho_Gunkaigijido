@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>文教の森 GPS-AR</title>
+    
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+    <script src="https://raw.githack.com/fcor/arjs-gestures/master/dist/gestures.js"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+        .clickable { pointer-events: auto; }
+
+        .building-menu {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .building-menu button {
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: none;
+            background: rgba(255,255,255,0.88);
+            cursor: pointer;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .lang-menu {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 5px;
+        }
+        .lang-menu button {
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: none;
+            background: rgba(255,255,255,0.8);
+            cursor: pointer;
+        }
+
+        .bottom-bar {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .btn-circle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            background: white;
+            font-size: 24px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        #desc-panel {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 40%;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 20px 20px 0 0;
+            display: none;
+            transition: transform 0.3s;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .scroll-box {
+            overflow-y: auto;
+            height: 80%;
+            margin-top: 10px;
+            line-height: 1.6;
+        }
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui-layer">
+        <div class="building-menu clickable">
+            <button onclick="setBuilding('kozakukan')">小桜館</button>
+            <button onclick="setBuilding('firstAssemblyHall')">初代会議事堂</button>
+            <button onclick="setBuilding('secondAssemblyHall')">二代目会議事堂</button>
+        </div>
+
+        <div class="lang-menu clickable">
+            <button onclick="updateContent('jp')">JP</button>
+            <button onclick="updateContent('en')">EN</button>
+            <button onclick="updateContent('ko')">KO</button>
+            <button onclick="updateContent('zh')">CN</button>
+        </div>
+
+        <div class="bottom-bar clickable">
+            <button class="btn-circle" onclick="takeSnapshot()">📸</button>
+            <button class="btn-circle" onclick="toggleInfo()">ℹ️</button>
+            <a href="tel:0238885151"><button class="btn-circle" type="button">📞</button></a>
+            <a href="mailto:bunkyonomori@city.nagai.yamagata.jp"><button class="btn-circle" type="button">✉️</button></a>
+        </div>
+
+        <div id="desc-panel" class="clickable">
+            <button class="close-btn" onclick="toggleInfo()">×</button>
+            <h2 id="panel-title">旧西置賜郡役所</h2>
+            <div class="scroll-box">
+                <p id="panel-text">ここに各言語の説明文が表示されます。</p>
+            </div>
+        </div>
+    </div>
+
+    <a-scene
+        vr-mode-ui="enabled: false"
+        embedded
+        arjs="sourceType: webcam; debugUIEnabled: false;"
+        gesture-detector
+        renderer="logarithmicDepthBuffer: true;"
+    >
+        <a-assets>
+            <a-asset-item id="building-model" src="Buildings-v3.glb"></a-asset-item>
+        </a-assets>
+
+        <a-entity
+            id="model-entity"
+            gltf-model="#building-model"
+            gps-entity-place="latitude: 38.110949737154165; longitude: 140.03641843352221;"
+            scale="1 1 1"
+            class="clickable"
+            gesture-handler
+        ></a-entity>
+
+        <a-camera gps-camera rotation-reader></a-camera>
+    </a-scene>
+
+    <script>
+        const LOG_ENDPOINT = "https://script.google.com/macros/s/AKfycbwgwKmn182INw30dpcm3Yaet4ZXZKyPzLpY1qOAX9kvENckPjZH4mBZg_E4aQ1w-qFg/exec";
+
+        const HEARTBEAT_INTERVAL_MS = 20000;
+        let currentSpotId = "kozakukan";
+
+        let sessionId = null;
+        let userId = null;
+        let enteredAt = null;
+        let lastSeenAt = null;
+        let heartbeatTimer = null;
+        let hasEnded = false;
+
+        let currentBuilding = "kozakukan";
+        let currentLang = "jp";
+        let currentAudio = new Audio();
+
+        const buildingTranslations = {
+            kozakukan: {
+                spotId: "kozakukan",
+                jp: {
+                    title: "旧西置賜郡役所",
+                    text: "西置賜郡役所は、明治11年に建てられた擬洋風建築です。和の木造技術で洋風の意匠を表した建物で、現存する郡役所としては全国でも古い例に数えられます。現在は「小桜館」として保存・活用されています。",
+                    audio: "小桜館_Japanese.wav"
+                },
+                en: {
+                    title: "Former Nishi-Okitama District Office",
+                    text: "The Nishiokitama District Office was built in 1878 and is a fine example of pseudo-Western architecture. It combines traditional Japanese wooden construction with Western design elements, and it is regarded as one of the oldest surviving district office buildings in Japan. Today, it is preserved and used under the name Kozakurakan.",
+                    audio: "小桜館_English.wav"
+                },
+                ko: {
+                    title: "구 니시오키타마군 역소",
+                    text: "니시오키타마 군청은 1878년에 세워진 의양풍 건축입니다. 일본 전통 목조건축 기술로 서양식 외관을 표현한 건물로, 현존하는 군청 건물 가운데서도 매우 오래된 사례로 평가됩니다. 현재는 ‘고자쿠라칸’으로 보존·활용되고 있습니다.",
+                    audio: "小桜館_Korean.wav"
+                },
+                zh: {
+                    title: "旧西置赐郡公署",
+                    text: "西置赐郡役所建于1878年，是一座典型的拟洋风建筑。它以日本传统木构技术表现西式外观，被认为是日本现存最古老的郡役所建筑之一。如今，这座建筑以“小樱馆”的名称被保存并继续利用。",
+                    audio: "小桜館_Chinese.wav"
+                }
+            },
+
+            firstAssemblyHall: {
+                spotId: "first_assembly_hall",
+                jp: {
+                    title: "初代西置賜郡会議事堂",
+                    text: "初代西置賜郡会議事堂は、明治20年に建てられた洋風木造の議事堂です。西置賜郡の議会が開かれた建物で、のちに役目を終えた後は置賜織物同業組合の事務所として使われ、地域産業の歩みも見守りました。",
+                    audio: "初代西置賜郡会議事堂_Japanese.wav"
+                },
+                en: {
+                    title: "First Nishiokitama District Assembly Hall",
+                    text: "The first Nishiokitama District Assembly Hall was a Western-style wooden hall built in 1887. It served as the meeting place for the district assembly, and after its original role ended, it was reused as the office of the Okitama Textile Trade Association, linking the building to the region’s industrial history.",
+                    audio: "初代西置賜郡会議事堂_English.wav"
+                },
+                ko: {
+                    title: "초대 니시오키타마 군 회의사당",
+                    text: "초대 니시오키타마 군 회의사당은 1887년에 세워진 서양식 목조 건물입니다. 니시오키타마 군의 의회가 열리던 장소였으며, 본래의 역할을 마친 뒤에는 오키타마 직물 동업조합 사무소로 활용되어 지역 산업의 역사와도 이어졌습니다.",
+                    audio: "初代西置賜郡会議事堂_Korean.wav"
+                },
+                zh: {
+                    title: "第一代西置赐郡会议事堂",
+                    text: "第一代西置赐郡会议事堂建于1887年，是一座西式木造建筑。这里曾是西置赐郡议会召开的场所，在完成原有使命后，又被用作置赐织物同业组合事务所，见证了当地产业的发展历程。",
+                    audio: "初代西置賜郡会議事堂_Chinese.wav"
+                }
+            },
+
+            secondAssemblyHall: {
+                spotId: "second_assembly_hall",
+                jp: {
+                    title: "二代目西置賜郡会議事堂",
+                    text: "二代目西置賜郡会議事堂は、明治44年10月に郡役所の北側へ新築された議事堂です。郡政の中心施設として使われましたが、郡制廃止後は郡教育会館や図書館として再利用され、学びと文化の場へと受け継がれました。",
+                    audio: "二代目西置賜郡会議事堂_Japanese.wav"
+                },
+                en: {
+                    title: "Second Nishiokitama District Assembly Hall",
+                    text: "The second Nishiokitama District Assembly Hall was newly built in October 1911 on the north side of the district office. It served as a central facility for district administration. After the district system was abolished, the building was reused as an education hall and a library.",
+                    audio: "二代目西置賜郡会議事堂_English.wav"
+                },
+                ko: {
+                    title: "2대 니시오키타마 군 회의사당",
+                    text: "2대 니시오키타マ 군 회의사당은 1911년 10월, 군청 북쪽에 새로 지어진 건물입니다. 이 건물은 군 행정의 중심 시설로 사용되었습니다. 군제가 폐지된 뒤에는 교육회관과 도서관으로 다시 활용되었습니다.",
+                    audio: "二代目西置賜郡会議事堂_Korean.wav"
+                },
+                zh: {
+                    title: "第二代西置赐郡会议事堂",
+                    text: "第二代西置赐郡会议事堂于1911年10月在郡役所北侧新建。它曾是郡政运作的重要设施。郡制废除后，这座建筑又被改作教育会馆和图书馆。",
+                    audio: "二代目西置賜郡会議事堂_Chinese.wav"
+                }
+            }
+        };
+
+        function generateId(prefix = "id") {
+            return prefix + "_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
+        }
+
+        function getOrCreateUserId() {
+            const key = "webar_user_id";
+            let id = localStorage.getItem(key);
+            if (!id) {
+                id = generateId("user");
+                localStorage.setItem(key, id);
+            }
+            return id;
+        }
+
+        function nowIso() {
+            return new Date().toISOString();
+        }
+
+        function calcDurationSec(fromIso, toIso) {
+            if (!fromIso || !toIso) return "";
+            return Math.max(0, Math.floor((new Date(toIso) - new Date(fromIso)) / 1000));
+        }
+
+        function buildPayload(eventType, extra = {}) {
+            return {
+                event_type: eventType,
+                session_id: sessionId,
+                user_id: userId,
+                spot_id: currentSpotId,
+                page_url: location.href,
+                lang: currentLang,
+                entered_at: enteredAt,
+                left_at: extra.left_at || "",
+                last_seen_at: extra.last_seen_at || lastSeenAt || "",
+                duration_sec: extra.duration_sec ?? "",
+                visibility_state: document.visibilityState,
+                user_agent: navigator.userAgent,
+                note: extra.note || ""
+            };
+        }
+
+        function postJson(payload) {
+            if (!LOG_ENDPOINT) return Promise.resolve();
+
+            return fetch(LOG_ENDPOINT, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "text/plain;charset=utf-8"
+                },
+                body: JSON.stringify(payload),
+                mode: "no-cors"
+            }).catch(err => {
+                console.warn("log post error:", err);
+            });
+        }
+
+        function sendBeaconLog(payload) {
+            try {
+                const blob = new Blob([JSON.stringify(payload)], {
+                    type: "text/plain;charset=utf-8"
+                });
+                return navigator.sendBeacon(LOG_ENDPOINT, blob);
+            } catch (err) {
+                console.warn("sendBeacon error:", err);
+                return false;
+            }
+        }
+
+        function logSessionStart() {
+            enteredAt = nowIso();
+            lastSeenAt = enteredAt;
+
+            const payload = buildPayload("session_start", {
+                last_seen_at: lastSeenAt,
+                duration_sec: 0
+            });
+
+            postJson(payload);
+        }
+
+        function logHeartbeat() {
+            if (hasEnded) return;
+
+            lastSeenAt = nowIso();
+
+            const payload = buildPayload("heartbeat", {
+                last_seen_at: lastSeenAt,
+                duration_sec: calcDurationSec(enteredAt, lastSeenAt)
+            });
+
+            postJson(payload);
+        }
+
+        function logSessionEnd(reason = "") {
+            if (hasEnded) return;
+            hasEnded = true;
+
+            const leftAt = nowIso();
+            const durationSec = calcDurationSec(enteredAt, leftAt);
+
+            const payload = buildPayload("session_end", {
+                left_at: leftAt,
+                last_seen_at: lastSeenAt || leftAt,
+                duration_sec: durationSec,
+                note: reason
+            });
+
+            const sent = sendBeaconLog(payload);
+            if (!sent) {
+                postJson(payload);
+            }
+
+            stopHeartbeat();
+        }
+
+        function startHeartbeat() {
+            stopHeartbeat();
+            heartbeatTimer = setInterval(logHeartbeat, HEARTBEAT_INTERVAL_MS);
+        }
+
+        function stopHeartbeat() {
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+        }
+
+        function initVisitLogger() {
+            sessionId = generateId("session");
+            userId = getOrCreateUserId();
+            enteredAt = null;
+            lastSeenAt = null;
+            hasEnded = false;
+
+            logSessionStart();
+            startHeartbeat();
+        }
+
+        function applyCurrentContent(openPanel = false) {
+            const buildingData = buildingTranslations[currentBuilding];
+            if (!buildingData) return;
+
+            currentSpotId = buildingData.spotId || currentBuilding;
+
+            const data = buildingData[currentLang];
+            if (!data) return;
+
+            document.getElementById("panel-title").innerText = data.title;
+            document.getElementById("panel-text").innerText = data.text;
+
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
+            currentAudio.src = "audio/" + data.audio;
+
+            currentAudio.play().catch(err => {
+                console.warn("音声再生エラー:", err);
+            });
+
+            if (openPanel) {
+                document.getElementById("desc-panel").style.display = "block";
+            }
+        }
+
+        function updateContent(lang) {
+            currentLang = lang;
+            applyCurrentContent(true);
+        }
+
+        function setBuilding(buildingKey) {
+            if (!buildingTranslations[buildingKey]) return;
+            currentBuilding = buildingKey;
+            applyCurrentContent(true);
+        }
+
+        function toggleInfo() {
+            const panel = document.getElementById("desc-panel");
+            panel.style.display = (panel.style.display === "none" || panel.style.display === "") ? "block" : "none";
+        }
+
+        function takeSnapshot() {
+            const scene = document.querySelector("a-scene");
+            if (!scene || !scene.components.screenshot) {
+                console.warn("スクリーンショット機能が使えません");
+                return;
+            }
+
+            const canvas = scene.components.screenshot.getCanvas("perspective");
+            const link = document.createElement("a");
+            link.download = "bunkyonomori_AR.png";
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+        }
+
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "hidden") {
+                logSessionEnd("visibility_hidden");
+            }
+        });
+
+        window.addEventListener("pagehide", () => {
+            logSessionEnd("pagehide");
+        });
+
+        window.addEventListener("beforeunload", () => {
+            logSessionEnd("beforeunload");
+        });
+
+        window.addEventListener("DOMContentLoaded", () => {
+            initVisitLogger();
+            applyCurrentContent(false);
+        });
+    </script>
+</body>
+</html>
