@@ -11,26 +11,18 @@
 
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; pointer-events: none; }
         .clickable { pointer-events: auto; }
 
-        /* 上部メニュー：建物切り替え */
+        /* UIのデザインは維持 */
         .top-menu { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 8px; }
-        .top-menu button { padding: 12px; border-radius: 8px; border: none; background: rgba(255,255,255,0.9); font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; }
+        .top-menu button { padding: 12px; border-radius: 8px; border: none; background: rgba(255,255,255,0.9); font-weight: bold; cursor: pointer; font-size: 14px; }
         .active-btn { background: #4CAF50 !important; color: white; }
-
-        /* 言語選択 */
         .lang-menu { position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; }
-        .lang-menu button { padding: 8px 12px; border-radius: 5px; border: none; background: white; font-size: 12px; font-weight: bold; }
-
-        /* 下部アクションバー */
+        .lang-menu button { padding: 8px 10px; border-radius: 5px; border: none; background: white; font-size: 11px; font-weight: bold; }
         .bottom-bar { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 15px; }
-        .btn-action { width: 60px; height: 60px; border-radius: 50%; border: none; background: white; font-size: 24px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; }
-        .recording { background: #ff4b4b !important; color: white; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-
-        /* 説明パネル */
-        #desc-panel { position: absolute; bottom: 0; width: 100%; height: 38%; background: rgba(0,0,0,0.85); color: white; border-radius: 20px 20px 0 0; display: none; padding: 20px; box-sizing: border-box; transition: 0.3s; }
+        .btn-action { width: 55px; height: 55px; border-radius: 50%; border: none; background: white; font-size: 22px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        #desc-panel { position: absolute; bottom: 0; width: 100%; height: 38%; background: rgba(0,0,0,0.85); color: white; border-radius: 20px 20px 0 0; display: none; padding: 20px; box-sizing: border-box; }
         .scroll-box { overflow-y: auto; height: 75%; margin-top: 10px; line-height: 1.6; }
     </style>
 </head>
@@ -47,11 +39,12 @@
         <div class="lang-menu clickable">
             <button onclick="changeLang('jp')">JP</button>
             <button onclick="changeLang('en')">EN</button>
+            <button onclick="changeLang('ko')">KO</button>
+            <button onclick="changeLang('zh')">CN</button>
         </div>
 
         <div class="bottom-bar clickable">
             <button class="btn-action" onclick="takePhoto()">📸</button>
-            <button id="rec-btn" class="btn-action" onclick="toggleRecording()">⏺️</button>
             <button class="btn-action" onclick="shareApp()">🔗</button>
             <button class="btn-action" onclick="playAudio()">🔊</button>
             <button class="btn-action" onclick="toggleInfo()">ℹ️</button>
@@ -69,6 +62,7 @@
         arjs="sourceType: webcam; debugUIEnabled: false;"
         renderer="antialias: false; precision: mediump; logarithmicDepthBuffer: true;"
         gesture-detector
+        id="scene"
         webxr="enabled: false;"
         gltf-model="dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.6/;"
     >
@@ -76,46 +70,67 @@
             <img id="shadow-img" src="https://raw.githubusercontent.com/n5ro/aframe-extras/master/assets/shadow.png">
         </a-assets>
 
-        <a-entity id="ar-anchor" position="0 -1.5 -5" raycaster="objects: .clickable" gesture-handler>
+        <a-entity 
+            id="ar-anchor" 
+            position="0 -1.5 -5" 
+            class="clickable"
+            gesture-handler="minScale: 0.1; maxScale: 10"
+        >
             <a-entity 
                 id="main-model" 
                 gltf-model="Buildings-v3.glb" 
-                scale="1 1 1"
-                class="clickable">
+                scale="1 1 1">
             </a-entity>
-            
             <a-image src="#shadow-img" rotation="-90 0 0" scale="4 4 4" position="0 0.01 0" opacity="0.6"></a-image>
         </a-entity>
 
-        <a-camera gps-camera rotation-reader></a-camera>
+        <a-camera gps-camera rotation-reader raycaster="objects: .clickable" cursor="fuse: false; rayOrigin: mouse;"></a-camera>
     </a-scene>
 
     <script>
-        // --- データ定義 ---
+        // --- 4ヶ国語対応データ構造 ---
         const appData = {
-            all: { model: "Buildings-v3.glb", jp: { title: "文教の森 全体像", text: "明治時代の郡役所と議事堂の配置を再現しています。", audio: "" } },
-            kozakura: { model: "Buildings-Gunyakusho.glb", jp: { title: "旧西置賜郡役所（小桜館）", text: "1878年に建てられた山形県内最古の郡役所建築です。", audio: "Kozakura_JP.mp3" }, en: { title: "Former District Office", text: "Built in 1878...", audio: "Kozakura_EN.mp3" } },
-            assembly1: { model: "Buildings-1st_Gunkai.glb", jp: { title: "初代西置賜郡会議事堂", text: "明治20年に建てられた洋風木造建築です。", audio: "1st_Gunkai_JP.mp3" } },
-            assembly2: { model: "Buildings-2nd_Gunkai.glb", jp: { title: "二代目西置賜郡会議事堂", text: "明治44年に新築された議事堂です。", audio: "2nd_Gunkai_JP.mp3" } }
+            all: { 
+                model: "Buildings-v3.glb", 
+                jp: { title: "文教の森 全体像", text: "明治時代の配置を再現しています。", audio: "" },
+                en: { title: "Full View", text: "Reconstructing the original layout.", audio: "" },
+                ko: { title: "전체 모습", text: "메이지 시대의 배치를 재현하고 있습니다.", audio: "" },
+                zh: { title: "文教之森 全景", text: "重现了明治时代的布局。", audio: "" }
+            },
+            kozakura: { 
+                model: "Buildings-Gunyakusho.glb", 
+                jp: { title: "旧西置賜郡役所（小桜館）", text: "1878年に建てられた擬洋風建築です。", audio: "Kozakura_JP.mp3" },
+                en: { title: "Former District Office", text: "Built in 1878, a Western-style building.", audio: "Kozakura_EN.mp3" },
+                ko: { title: "구 니시오키타마군 역소", text: "1878년에 지어진 의양풍 건축입니다.", audio: "Kozakura_KO.mp3" },
+                zh: { title: "旧西置赐郡公署", text: "建于1878年的拟洋风建筑。", audio: "Kozakura_CN.mp3" }
+            },
+            assembly1: { 
+                model: "Buildings-1st_Gunkai.glb", 
+                jp: { title: "初代西置賜郡会議事堂", text: "明治20年に建てられた洋風木造建築です。", audio: "1st_JP.mp3" },
+                en: { title: "1st Assembly Hall", text: "Built in 1887, a wooden hall.", audio: "1st_EN.mp3" },
+                ko: { title: "초대 군 회의사당", text: "1887년에 세워진 서양식 목조 건물입니다.", audio: "1st_KO.mp3" },
+                zh: { title: "第一代郡会议事堂", text: "建于1887年的西式木造建筑。", audio: "1st_CN.mp3" }
+            },
+            assembly2: { 
+                model: "Buildings-2nd_Gunkai.glb", 
+                jp: { title: "二代目西置賜郡会議事堂", text: "明治44年に新築された議事堂です。", audio: "2nd_JP.mp3" },
+                en: { title: "2nd Assembly Hall", text: "Newly built in 1911.", audio: "2nd_EN.mp3" },
+                ko: { title: "2대 군 회의사당", text: "1911년에 새로 지어진 사당입니다.", audio: "2nd_KO.mp3" },
+                zh: { title: "第二代郡会议事堂", text: "1911年新建的议事堂。", audio: "2nd_CN.mp3" }
+            }
         };
 
         let currentMode = "all";
         let currentLang = "jp";
         let audioPlayer = new Audio();
-        let isRecording = false;
-        let mediaRecorder;
-        let recordedChunks = [];
 
-        // --- 機能関数 ---
         function switchModel(key) {
             currentMode = key;
             const data = appData[key];
             document.getElementById('main-model').setAttribute('gltf-model', data.model);
             
-            // UI更新
             document.querySelectorAll('.top-menu button').forEach(btn => btn.classList.remove('active-btn'));
-            const btnId = key === 'all' ? 'btn-all' : 'btn-' + key;
-            const targetBtn = document.getElementById(btnId);
+            const targetBtn = document.getElementById(key === 'all' ? 'btn-all' : 'btn-' + key);
             if(targetBtn) targetBtn.classList.add('active-btn');
 
             updateUIContent();
@@ -135,7 +150,7 @@
         }
 
         function playAudio() {
-            audioPlayer.play().catch(e => alert("スピーカーボタンを押して音声を再生してください"));
+            if (audioPlayer.src) audioPlayer.play().catch(e => console.log("再生エラー"));
         }
 
         function toggleInfo() {
@@ -143,7 +158,6 @@
             p.style.display = p.style.display === 'none' ? 'block' : 'none';
         }
 
-        // 写真撮影
         function takePhoto() {
             const scene = document.querySelector('a-scene');
             const canvas = scene.components.screenshot.getCanvas('perspective');
@@ -153,41 +167,11 @@
             link.click();
         }
 
-        // 録画機能
-        async function toggleRecording() {
-            const btn = document.getElementById('rec-btn');
-            if (!isRecording) {
-                const canvas = document.querySelector('canvas');
-                const stream = canvas.captureStream(30);
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-                mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
-                mediaRecorder.onstop = () => {
-                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url; a.download = 'nagai_ar_video.webm'; a.click();
-                    recordedChunks = [];
-                };
-                mediaRecorder.start();
-                btn.classList.add('recording');
-                isRecording = true;
-            } else {
-                mediaRecorder.stop();
-                btn.classList.remove('recording');
-                isRecording = false;
-            }
-        }
-
-        // SNS共有 (Web Share API)
         function shareApp() {
             if (navigator.share) {
-                navigator.share({
-                    title: '文教の森 ARポータル',
-                    text: '長井市の歴史的建造物をARで体験中！ #長井市 #文教の森 #WebAR',
-                    url: location.href
-                });
+                navigator.share({ title: '文教の森 AR', url: location.href });
             } else {
-                prompt("URLをコピーしてSNSで共有してください：", location.href);
+                prompt("URLをコピーしてください：", location.href);
             }
         }
     </script>
