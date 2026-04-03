@@ -129,14 +129,26 @@
             anchor.setAttribute('scale', sca);
         }
 
-        function switchModel(key) {
-            currentMode = key;
-            document.getElementById('main-model').setAttribute('gltf-model', appData[key].model);
-            document.querySelectorAll('.top-left button').forEach(btn => btn.classList.remove('active-btn'));
-            const targetBtn = document.getElementById(key === 'all' ? 'btn-all' : 'btn-' + key);
-            if(targetBtn) targetBtn.classList.add('active-btn');
-            updateUIContent(true);
-        }
+function switchModel(key) {
+    currentMode = key;
+    const modelEl = document.getElementById('main-model');
+    const data = appData[key];
+
+    if (data && data.model) {
+        // モデルをセット
+        modelEl.setAttribute('gltf-model', data.model);
+        
+        // ボタンの色の更新
+        document.querySelectorAll('.top-left button').forEach(btn => btn.classList.remove('active-btn'));
+        const btnId = (key === 'all') ? 'btn-all' : 'btn-' + key;
+        const targetBtn = document.getElementById(btnId);
+        if(targetBtn) targetBtn.classList.add('active-btn');
+        
+        updateUIContent(true);
+    } else {
+        console.error("データが見つかりません:", key);
+    }
+}
 
         function updateUIContent(openPanel) {
             const data = appData[currentMode][currentLang] || appData[currentMode]['jp'];
