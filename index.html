@@ -3,157 +3,83 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>文教の森 ARポータル</title>
+    <title>文教の森 AR</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-
     <style>
-        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; pointer-events: none; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+        #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; pointer-events: none; }
         .clickable { pointer-events: auto; }
-
-        /* メニュー配置 */
-        .menu-group { position: absolute; display: flex; flex-direction: column; gap: 6px; }
-        button { padding: 12px; border-radius: 8px; border: none; background: rgba(255,255,255,0.9); font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        
+        .menu { position: absolute; display: flex; flex-direction: column; gap: 5px; }
+        button { padding: 10px; border-radius: 8px; border: none; background: white; font-weight: bold; }
         .top-left { top: 10px; left: 10px; }
-        .top-right { top: 10px; right: 10px; flex-direction: row; }
-        .active-btn { background: #4CAF50 !important; color: white; }
-
-        /* 操作パネル（左右中央） */
-        .ctrl-left { top: 50%; left: 10px; transform: translateY(-50%); }
-        .ctrl-right { top: 50%; right: 10px; transform: translateY(-50%); }
-        .label { color: white; font-size: 10px; text-align: center; background: rgba(0,0,0,0.5); border-radius: 3px; padding: 2px; }
-
-        /* 下部アクション */
-        .bottom-bar { position: absolute; bottom: 25px; width: 100%; display: flex; justify-content: center; gap: 12px; }
-        .btn-round { width: 55px; height: 55px; border-radius: 50%; font-size: 24px; display: flex; align-items: center; justify-content: center; }
-
-        #desc-panel { position: absolute; bottom: 0; width: 100%; height: 25%; background: rgba(0,0,0,0.85); color: white; border-radius: 15px 15px 0 0; display: none; padding: 20px; box-sizing: border-box; }
+        .ctrl-left { top: 40%; left: 10px; }
+        .ctrl-right { top: 40%; right: 10px; }
+        .bottom { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 10px; }
+        .active { background: #4CAF50; color: white; }
     </style>
 </head>
-
 <body>
-    <div id="ui-layer">
-        <div class="menu-group top-left clickable">
-            <button id="btn-all" class="active-btn" onclick="switchModel('all')">全体表示</button>
+    <div id="ui">
+        <div class="menu top-left clickable">
+            <button id="btn-all" class="active" onclick="switchModel('all')">全体</button>
             <button id="btn-kozakura" onclick="switchModel('kozakura')">小桜館</button>
-            <button id="btn-assembly1" onclick="switchModel('assembly1')">初代議事堂</button>
-            <button id="btn-assembly2" onclick="switchModel('assembly2')">二代目議事堂</button>
+            <button id="btn-assembly1" onclick="switchModel('assembly1')">初代</button>
+            <button id="btn-assembly2" onclick="switchModel('assembly2')">二代目</button>
         </div>
-
-        <div class="menu-group top-right clickable">
-            <button onclick="changeLang('jp')">JP</button>
-            <button onclick="changeLang('en')">EN</button>
-            <button onclick="changeLang('ko')">KO</button>
-            <button onclick="changeLang('zh')">CN</button>
+        <div class="menu ctrl-left clickable">
+            <button onclick="move('z', -1)">前へ</button>
+            <button onclick="move('z', 1)">後へ</button>
+            <button onclick="move('y', 0.5)">上へ</button>
+            <button onclick="move('y', -0.5)">下へ</button>
         </div>
-
-        <div class="menu-group ctrl-left clickable">
-            <div class="label">位置(前後)</div>
-            <button onclick="moveModel('z', -1)">前へ</button>
-            <button onclick="moveModel('z', 1)">後へ</button>
-            <div class="label" style="margin-top:10px">位置(上下)</div>
-            <button onclick="moveModel('y', 0.5)">上へ</button>
-            <button onclick="moveModel('y', -0.5)">下へ</button>
+        <div class="menu ctrl-right clickable">
+            <button onclick="rotate(20)">右回転</button>
+            <button onclick="rotate(-20)">左回転</button>
+            <button onclick="scale(1.2)">拡大</button>
+            <button onclick="scale(0.8)">縮小</button>
         </div>
-
-        <div class="menu-group ctrl-right clickable">
-            <div class="label">回転</div>
-            <button onclick="rotateModel(20)">↻ 右回転</button>
-            <button onclick="rotateModel(-20)">↺ 左回転</button>
-            <div class="label" style="margin-top:10px">サイズ</div>
-            <button onclick="scaleModel(1.2)">➕ 拡大</button>
-            <button onclick="scaleModel(0.8)">➖ 縮小</button>
-        </div>
-
-        <div class="bottom-bar clickable">
-            <button class="btn-round" onclick="takePhoto()">📸</button>
-            <button class="btn-round" onclick="shareApp()">🔗</button>
-            <button class="btn-round" onclick="playAudio()">🔊</button>
-            <button class="btn-round" onclick="toggleInfo()">ℹ️</button>
-        </div>
-
-        <div id="desc-panel" class="clickable">
-            <h2 id="info-title" style="margin:0; font-size: 18px;">建物情報</h2>
-            <p id="info-text" style="font-size: 14px;">建物を選択してください。</p>
+        <div class="bottom clickable">
+            <button onclick="location.reload()">🔄 再読込</button>
         </div>
     </div>
 
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;" renderer="logarithmicDepthBuffer: true;" webxr="enabled: false;">
-        <a-assets>
-            <img id="shadow-img" src="https://raw.githubusercontent.com/n5ro/aframe-extras/master/assets/shadow.png">
-        </a-assets>
-
-        <a-entity id="ar-anchor" position="0 -1.6 -5">
-            <a-entity id="main-model" gltf-model="Buildings-v3.glb"></a-entity>
-            <a-image src="#shadow-img" rotation="-90 0 0" scale="6 6 6" position="0 0.01 0" opacity="0.5"></a-image>
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+        <a-entity id="anchor" position="0 -1.6 -5">
+            <a-entity id="model" gltf-model="Buildings-v3.glb"></a-entity>
         </a-entity>
-
         <a-camera gps-camera rotation-reader></a-camera>
     </a-scene>
 
     <script>
-    const appData = {
-            all: { 
-                model: "Buildings-v3.glb", 
-                jp: { title: "文教の森 全体像", text: "明治時代の郡役所と議事堂の配置です。" }, 
-                en: { title: "Full View", text: "Layout of Meiji-era buildings." }, 
-                ko: { title: "전체 모습", text: "메이지 시대의 배치입니다." }, 
-                zh: { title: "全景", text: "重现了明治时代的布局。" } 
-            },
-            kozakura: { 
-                model: "Buildings-Gunyakusho.glb", 
-                jp: { title: "旧西置賜郡役所", text: "1878年築。最古の郡役所建築。" }, 
-                en: { title: "Former District Office", text: "Built in 1878." }, 
-                ko: { title: "구 군청", text: "1878년 완공." }, 
-                zh: { title: "旧郡公署", text: "建于1878年。" } 
-            },
-            assembly1: { 
-                model: "Buildings-1st_Gunkai.glb", 
-                jp: { title: "初代郡会議事堂", text: "明治20年築の洋風木造建築。" }, 
-                en: { title: "1st Assembly Hall", text: "Built in 1887." }, 
-                ko: { title: "초대 의사당", text: "1887년 완공." }, 
-                zh: { title: "第一代议事堂", text: "建于1887年。" } 
-            },
-            assembly2: { 
-                model: "Buildings-2nd_Gunkai.glb", 
-                jp: { title: "二代目郡会議事堂", text: "明治44年に新築された議事堂。" }, 
-                en: { title: "2nd Assembly Hall", text: "Built in 1911." }, 
-                ko: { title: "2대 의사당", text: "1911년 완공." }, 
-                zh: { title: "第二代议事堂", text: "建于1911年。" } 
-            }
+        const appData = {
+            all: "Buildings-v3.glb",
+            kozakura: "Buildings-Gunyakusho.glb",
+            assembly1: "Buildings-1st_Gunkai.glb",
+            assembly2: "Buildings-2nd_Gunkai.glb"
         };
 
-        let currentMode = "all";
-        let currentLang = "jp";
-        const anchor = document.getElementById('ar-anchor');
-
-        function moveModel(axis, val) { let p = anchor.getAttribute('position'); p[axis] += val; anchor.setAttribute('position', p); }
-        function rotateModel(deg) { let r = anchor.getAttribute('rotation'); r.y += deg; anchor.setAttribute('rotation', r); }
-        function scaleModel(f) { let s = anchor.getAttribute('scale'); s.x *= f; s.y *= f; s.z *= f; anchor.setAttribute('scale', s); }
+        const anchor = document.getElementById('anchor');
+        const model = document.getElementById('model');
 
         function switchModel(key) {
-            currentMode = key;
-            document.getElementById('main-model').setAttribute('gltf-model', appData[key].model);
-            document.querySelectorAll('.top-left button').forEach(b => b.classList.remove('active-btn'));
-            const btn = document.getElementById(key === 'all' ? 'btn-all' : 'btn-' + key);
-            if(btn) btn.classList.add('active-btn');
-            updateUI(true);
+            const fileName = appData[key];
+            model.setAttribute('gltf-model', fileName);
+            
+            // 2代目の時だけ、もし見えなくても強制的に目の前に置く設定
+            if(key === 'assembly2') {
+                anchor.setAttribute('position', '0 0 -3');
+            } else {
+                anchor.setAttribute('position', '0 -1.6 -5');
+            }
+
+            document.querySelectorAll('.top-left button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + key).classList.add('active');
         }
 
-        function updateUI(open) {
-            const d = appData[currentMode][currentLang] || appData[currentMode]['jp'];
-            document.getElementById('info-title').innerText = d.title;
-            document.getElementById('info-text').innerText = d.text;
-            if(open) document.getElementById('desc-panel').style.display = 'block';
-        }
-
-        function changeLang(l) { currentLang = l; updateUI(false); }
-        function toggleInfo() { const p = document.getElementById('desc-panel'); p.style.display = p.style.display === 'none' ? 'block' : 'none'; }
-        function takePhoto() { /* 撮影処理 */ }
-        function shareApp() { /* 共有処理 */ }
-        function playAudio() { /* 音声再生 */ }
+        function move(ax, v) { let p = anchor.getAttribute('position'); p[ax] += v; anchor.setAttribute('position', p); }
+        function rotate(d) { let r = anchor.getAttribute('rotation'); r.y += d; anchor.setAttribute('rotation', r); }
+        function scale(f) { let s = anchor.getAttribute('scale'); s.x *= f; s.y *= f; s.z *= f; anchor.setAttribute('scale', s); }
     </script>
 </body>
 </html>
