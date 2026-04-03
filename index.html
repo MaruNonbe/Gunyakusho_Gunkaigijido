@@ -4,118 +4,141 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>文教の森 ARポータル</title>
-
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <script src="https://raw.githack.com/fcor/arjs-gestures/master/dist/gestures.js"></script>
 
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
-        /* UIレイヤーの設定：ボタン以外は「素通り」させる */
-        #ui-layer { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            z-index: 1000; pointer-events: none; 
-        }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; pointer-events: none; }
         .clickable { pointer-events: auto; }
 
-        /* ボタン類のデザイン */
-        .top-menu { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 8px; }
-        .top-menu button { padding: 10px 14px; border-radius: 8px; border: none; background: rgba(255,255,255,0.9); font-weight: bold; font-size: 13px; }
+        /* メニュー共通スタイル */
+        .menu-group { position: absolute; display: flex; flex-direction: column; gap: 5px; }
+        button { padding: 10px; border-radius: 8px; border: none; background: rgba(255,255,255,0.9); font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        
+        /* 建物・言語選択（上部） */
+        .top-left { top: 10px; left: 10px; }
+        .top-right { top: 10px; right: 10px; flex-direction: row; }
         .active-btn { background: #4CAF50 !important; color: white; }
-        .lang-menu { position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; }
-        .lang-menu button { padding: 8px 10px; border-radius: 5px; border: none; background: white; font-size: 11px; font-weight: bold; }
-        .bottom-bar { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 15px; }
-        .btn-action { width: 55px; height: 55px; border-radius: 50%; border: none; background: white; font-size: 22px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-        #desc-panel { position: absolute; bottom: 0; width: 100%; height: 30%; background: rgba(0,0,0,0.85); color: white; border-radius: 20px 20px 0 0; display: none; padding: 20px; box-sizing: border-box; }
-        .scroll-box { overflow-y: auto; height: 70%; margin-top: 8px; line-height: 1.5; font-size: 14px; }
+
+        /* 調整コントローラー（画面中央左右） */
+        .ctrl-left { top: 50%; left: 10px; transform: translateY(-50%); }
+        .ctrl-right { top: 50%; right: 10px; transform: translateY(-50%); }
+        .ctrl-label { color: white; font-size: 10px; text-align: center; background: rgba(0,0,0,0.5); border-radius: 4px; margin-bottom: 2px; }
+
+        /* 下部ボタン */
+        .bottom-bar { position: absolute; bottom: 25px; width: 100%; display: flex; justify-content: center; gap: 10px; }
+        .btn-round { width: 50px; height: 50px; border-radius: 50%; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+
+        /* パネル */
+        #desc-panel { position: absolute; bottom: 0; width: 100%; height: 28%; background: rgba(0,0,0,0.85); color: white; border-radius: 15px 15px 0 0; display: none; padding: 15px; box-sizing: border-box; }
     </style>
 </head>
 
 <body>
     <div id="ui-layer">
-        <div class="top-menu clickable">
-            <button id="btn-all" class="active-btn" onclick="switchModel('all')">全体表示</button>
+        <div class="menu-group top-left clickable">
+            <button id="btn-all" class="active-btn" onclick="switchModel('all')">全体</button>
             <button id="btn-kozakura" onclick="switchModel('kozakura')">小桜館</button>
-            <button id="btn-assembly1" onclick="switchModel('assembly1')">初代議事堂</button>
-            <button id="btn-assembly2" onclick="switchModel('assembly2')">二代目議事堂</button>
+            <button id="btn-assembly1" onclick="switchModel('assembly1')">初代</button>
+            <button id="btn-assembly2" onclick="switchModel('assembly2')">二代目</button>
         </div>
-        <div class="lang-menu clickable">
+
+        <div class="menu-group top-right clickable">
             <button onclick="changeLang('jp')">JP</button>
             <button onclick="changeLang('en')">EN</button>
             <button onclick="changeLang('ko')">KO</button>
             <button onclick="changeLang('zh')">CN</button>
         </div>
-        <div class="bottom-bar clickable">
-            <button class="btn-action" onclick="takePhoto()">📸</button>
-            <button class="btn-action" onclick="shareApp()">🔗</button>
-            <button class="btn-action" onclick="playAudio()">🔊</button>
-            <button class="btn-action" onclick="toggleInfo()">ℹ️</button>
+
+        <div class="menu-group ctrl-left clickable">
+            <div class="ctrl-label">位置(前後)</div>
+            <button onclick="moveModel('z', -0.5)">前へ</button>
+            <button onclick="moveModel('z', 0.5)">後へ</button>
+            <div class="ctrl-label" style="margin-top:10px">位置(上下)</div>
+            <button onclick="moveModel('y', 0.2)">上へ</button>
+            <button onclick="moveModel('y', -0.2)">下へ</button>
         </div>
+
+        <div class="menu-group ctrl-right clickable">
+            <div class="ctrl-label">回転</div>
+            <button onclick="rotateModel(15)">↻ 右回転</button>
+            <button onclick="rotateModel(-15)">↺ 左回転</button>
+            <div class="ctrl-label" style="margin-top:10px">サイズ</div>
+            <button onclick="scaleModel(1.2)">➕ 拡大</button>
+            <button onclick="scaleModel(0.8)">➖ 縮小</button>
+        </div>
+
+        <div class="bottom-bar clickable">
+            <button class="btn-round" onclick="takePhoto()">📸</button>
+            <button class="btn-round" onclick="shareApp()">🔗</button>
+            <button class="btn-round" onclick="playAudio()">🔊</button>
+            <button class="btn-round" onclick="toggleInfo()">ℹ️</button>
+        </div>
+
         <div id="desc-panel" class="clickable">
-            <button style="float:right; background:none; border:none; color:white; font-size:24px;" onclick="toggleInfo()">×</button>
-            <h2 id="info-title" style="margin:0; font-size: 18px;">建物情報</h2>
-            <div class="scroll-box"><p id="info-text">建物名を選択してください。</p></div>
+            <button style="float:right; background:none; border:none; color:white; font-size:20px;" onclick="toggleInfo()">×</button>
+            <h2 id="info-title" style="margin:0; font-size: 16px;">建物情報</h2>
+            <div style="margin-top:5px; font-size:13px;"><p id="info-text">建物名を選択してください。</p></div>
         </div>
     </div>
 
-    <a-scene
-        embedded
-        arjs="sourceType: webcam; debugUIEnabled: false;"
-        renderer="antialias: false; precision: mediump; logarithmicDepthBuffer: true;"
-        gesture-detector
-        id="scene"
-        webxr="enabled: false;"
-        gltf-model="dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.6/;"
-    >
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;" renderer="logarithmicDepthBuffer: true;" webxr="enabled: false;">
         <a-assets>
             <img id="shadow-img" src="https://raw.githubusercontent.com/n5ro/aframe-extras/master/assets/shadow.png">
         </a-assets>
 
-        <a-entity 
-            id="ar-anchor" 
-            position="0 -1.6 -5" 
-            gesture-handler="minScale: 0.1; maxScale: 10"
-        >
-            <a-entity 
-                id="main-model" 
-                gltf-model="Buildings-v3.glb" 
-                scale="1 1 1"
-                class="clickable"
-            ></a-entity>
+        <a-entity id="ar-anchor" position="0 -1.6 -5">
+            <a-entity id="main-model" gltf-model="Buildings-v3.glb" scale="1 1 1"></a-entity>
             <a-image src="#shadow-img" rotation="-90 0 0" scale="4 4 4" position="0 0.01 0" opacity="0.6"></a-image>
         </a-entity>
 
-        <a-camera gps-camera rotation-reader>
-            <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
-        </a-camera>
+        <a-camera gps-camera rotation-reader></a-camera>
     </a-scene>
 
     <script>
         const appData = {
-            all: { model: "Buildings-v3.glb", jp: { title: "文教の森 全体像", text: "明治時代の郡役所と議事堂の配置です。" } },
-            kozakura: { model: "Buildings-Gunyakusho.glb", jp: { title: "旧西置賜郡役所", text: "1878年築。山形県内最古の郡役所建築です。" } },
-            assembly1: { model: "Buildings-1st_Gunkai.glb", jp: { title: "初代郡会議事堂", text: "明治20年築の洋風木造建築です。" } },
-            assembly2: { model: "Buildings-2nd_Gunkai.glb", jp: { title: "二代目郡会議事堂", text: "明治44年に新築された議事堂です。" } }
+            all: { model: "Buildings-v3.glb", jp: { title: "文教の森 全体像", text: "明治時代の郡役所と議事堂の配置です。" }, en: { title: "Full View", text: "Layout of Meiji-era District Office and Halls." }, ko: { title: "전체 모습", text: "메이지 시대의 군청과 의사당 배치입니다." }, zh: { title: "文教之森 全景", text: "重现了明治时代的郡公署与议事堂布局。" } },
+            kozakura: { model: "Buildings-Gunyakusho.glb", jp: { title: "旧西置賜郡役所", text: "1878年築。山形県内最古の郡役所建築。" }, en: { title: "Former District Office", text: "Built in 1878. Oldest in Yamagata." }, ko: { title: "구 니시오키타마군 역소", text: "1878년 완공. 가장 오래된 군청 건물." }, zh: { title: "旧西置赐郡公署", text: "建于1878年。山形县现存最古老。" } },
+            assembly1: { model: "Buildings-1st_Gunkai.glb", jp: { title: "初代郡会議事堂", text: "明治20年築の洋風木造建築。" }, en: { title: "1st Assembly Hall", text: "Built in 1887. Wooden hall." }, ko: { title: "초대 군 회의사당", text: "1887년 완공된 목조 건물." }, zh: { title: "第一代郡会议事堂", text: "建于1887年的木造建筑。" } },
+            assembly2: { model: "Buildings-2nd_Gunkai.glb", jp: { title: "二代目郡会議事堂", text: "明治44年に新築された議事堂。" }, en: { title: "2nd Assembly Hall", text: "Newly built in 1911." }, ko: { title: "2대 군 회의사당", text: "1911년에 지어진 의사당." }, zh: { title: "第二代郡会议事堂", text: "1911年新建的议事堂。" } }
         };
 
-        // ...（言語データ略：前回と同様にKO, ZHも保持）
-        
         let currentMode = "all";
         let currentLang = "jp";
         let audioPlayer = new Audio();
 
+        // 調整用変数
+        const anchor = document.getElementById('ar-anchor');
+
+        function moveModel(axis, value) {
+            let pos = anchor.getAttribute('position');
+            pos[axis] += value;
+            anchor.setAttribute('position', pos);
+        }
+
+        function rotateModel(deg) {
+            let rot = anchor.getAttribute('rotation');
+            rot.y += deg;
+            anchor.setAttribute('rotation', rot);
+        }
+
+        function scaleModel(factor) {
+            let sca = anchor.getAttribute('scale');
+            sca.x *= factor; sca.y *= factor; sca.z *= factor;
+            anchor.setAttribute('scale', sca);
+        }
+
         function switchModel(key) {
             currentMode = key;
-            const modelEl = document.getElementById('main-model');
-            modelEl.setAttribute('gltf-model', appData[key].model);
-            
-            document.querySelectorAll('.top-menu button').forEach(btn => btn.classList.remove('active-btn'));
+            document.getElementById('main-model').setAttribute('gltf-model', appData[key].model);
+            document.querySelectorAll('.top-left button').forEach(btn => btn.classList.remove('active-btn'));
             const targetBtn = document.getElementById(key === 'all' ? 'btn-all' : 'btn-' + key);
             if(targetBtn) targetBtn.classList.add('active-btn');
             updateUIContent(true);
         }
 
-        function updateUIContent(openPanel = false) {
+        function updateUIContent(openPanel) {
             const data = appData[currentMode][currentLang] || appData[currentMode]['jp'];
             document.getElementById('info-title').innerText = data.title;
             document.getElementById('info-text').innerText = data.text;
@@ -123,10 +146,10 @@
         }
 
         function changeLang(lang) { currentLang = lang; updateUIContent(false); }
-        function playAudio() { /* 音声再生ロジック */ }
+        function playAudio() { /* 音声再生処理 */ }
         function toggleInfo() { const p = document.getElementById('desc-panel'); p.style.display = p.style.display === 'none' ? 'block' : 'none'; }
-        function takePhoto() { /* 写真撮影ロジック */ }
-        function shareApp() { /* 共有ロジック */ }
+        function takePhoto() { /* 写真保存処理 */ }
+        function shareApp() { /* 共有処理 */ }
     </script>
 </body>
 </html>
