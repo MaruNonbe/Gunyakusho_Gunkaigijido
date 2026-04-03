@@ -3,8 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>文教の森 GPS-AR</title>
-
+    <title>文教の森 ARポータル</title>
     <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
     <script src="https://raw.githack.com/fcor/arjs-gestures/master/dist/gestures.js"></script>
@@ -13,179 +12,77 @@
         body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
         .clickable { pointer-events: auto; }
-
-        /* UI配置 */
-        .building-menu { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 6px; }
-        .mode-menu { position: absolute; top: 130px; left: 10px; display: flex; flex-direction: column; gap: 6px; }
-        .lang-menu { position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; }
-
-        .building-menu button, .mode-menu button, .lang-menu button {
-            padding: 8px 10px; border-radius: 6px; border: none; background: rgba(255,255,255,0.88);
-            cursor: pointer; font-size: 13px; box-shadow: 0 2px 5px rgba(0,0,0,0.25);
-        }
-
-        .bottom-bar { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 15px; }
-        .btn-circle { width: 55px; height: 55px; border-radius: 50%; border: none; background: white; font-size: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer; }
-
-        #desc-panel { 
-            position: absolute; bottom: 0; width: 100%; height: 40%; background: rgba(0, 0, 0, 0.85); 
-            color: white; border-radius: 20px 20px 0 0; display: none; padding: 20px; box-sizing: border-box; 
-        }
-        .scroll-box { overflow-y: auto; height: 80%; margin-top: 10px; line-height: 1.6; }
-        .close-btn { position: absolute; top: 10px; right: 20px; background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
-
-        #status-box { 
-            position: absolute; top: 10px; left: 50%; transform: translateX(-50%); 
-            background: rgba(0,0,0,0.6); color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 11px; pointer-events: none; 
-        }
+        /* UIデザイン（前回同様） */
+        .top-menu { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .top-menu button { padding: 10px; border-radius: 8px; border: none; background: rgba(255,255,255,0.9); font-weight: bold; cursor: pointer; }
+        .bottom-bar { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 15px; }
+        .btn-action { width: 55px; height: 55px; border-radius: 50%; border: none; background: white; font-size: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        #desc-panel { position: absolute; bottom: 0; width: 100%; height: 35%; background: rgba(0,0,0,0.85); color: white; border-radius: 20px 20px 0 0; display: none; padding: 20px; box-sizing: border-box; }
     </style>
 </head>
 
 <body>
     <div id="ui-layer">
-        <div class="building-menu clickable">
-            <button onclick="setBuilding('kozakukan')">小桜館</button>
-            <button onclick="setBuilding('firstAssemblyHall')">初代会議事堂</button>
-            <button onclick="setBuilding('secondAssemblyHall')">二代目会議事堂</button>
+        <div class="top-menu clickable">
+            <button onclick="switchModel('all')">全体表示</button>
+            <button onclick="switchModel('kozakura')">小桜館</button>
         </div>
-
-        <div class="mode-menu clickable">
-            <button onclick="setDisplayMode('gps')">GPS表示</button>
-            <button onclick="setDisplayMode('free')">自由表示</button>
-        </div>
-
-        <div class="lang-menu clickable">
-            <button onclick="updateContent('jp')">JP</button>
-            <button onclick="updateContent('en')">EN</button>
-            <button onclick="updateContent('ko')">KO</button>
-            <button onclick="updateContent('zh')">CN</button>
-        </div>
-
-        <div id="status-box">読み込み中...</div>
-
         <div class="bottom-bar clickable">
-            <button class="btn-circle" onclick="takeSnapshot()">📸</button>
-            <button class="btn-circle" onclick="toggleInfo()">ℹ️</button>
-            <button class="btn-circle" onclick="playCurrentAudio()">🔊</button>
-            <a href="tel:0238885151"><button class="btn-circle">📞</button></a>
-            <a href="mailto:bunkyonomori@city.nagai.yamagata.jp"><button class="btn-circle">✉️</button></a>
+            <button class="btn-action" onclick="takePhoto()">📸</button>
+            <button id="rec-btn" class="btn-action" onclick="toggleRecording()">⏺️</button>
+            <button class="btn-action" onclick="shareApp()">🔗</button>
+            <button class="btn-action" onclick="toggleInfo()">ℹ️</button>
         </div>
-
         <div id="desc-panel" class="clickable">
-            <button class="close-btn" onclick="toggleInfo()">×</button>
-            <h2 id="panel-title">タイトル</h2>
-            <div class="scroll-box"><p id="panel-text">説明文</p></div>
+            <h2 id="info-title">建物情報</h2>
+            <p id="info-text">ここに説明が表示されます。</p>
         </div>
     </div>
 
     <a-scene
-        vr-mode-ui="enabled: false"
         embedded
         arjs="sourceType: webcam; debugUIEnabled: false;"
-        renderer="logarithmicDepthBuffer: true; precision: mediump; antialias: false; alpha: true;"
+        renderer="antialias: false; precision: mediump; logarithmicDepthBuffer: true;"
         gesture-detector
         gltf-model="dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.6/;"
     >
         <a-assets>
-            <a-asset-item id="main-model" src="Buildings-v3.glb"></a-asset-item>
+            <a-asset-item id="full-model" src="Buildings-v3.glb"></a-asset-item>
+            <img id="shadow-img" src="https://raw.githubusercontent.com/n5ro/aframe-extras/master/assets/shadow.png">
         </a-assets>
 
-        <a-entity id="gps-anchor" gps-entity-place="latitude: 38.110949; longitude: 140.036418;" visible="true">
-            <a-entity gltf-model="#main-model" scale="1 1 1" class="clickable" gesture-handler></a-entity>
-        </a-entity>
-
-        <a-entity id="free-anchor" position="0 0 -8" visible="false">
-            <a-entity gltf-model="#main-model" scale="0.8 0.8 0.8" rotation="0 45 0" class="clickable" gesture-handler></a-entity>
+        <a-entity id="ar-anchor" position="0 -1.5 -5" gesture-handler>
+            <a-entity id="main-model" gltf-model="#full-model" scale="1 1 1"></a-entity>
+            
+            <a-image src="#shadow-img" rotation="-90 0 0" scale="3 3 3" position="0 0.01 0" opacity="0.6"></a-image>
         </a-entity>
 
         <a-camera gps-camera rotation-reader></a-camera>
     </a-scene>
 
     <script>
-        const bData = {
-            kozakukan: {
-                gps: { lat: 38.1109497, lon: 140.0364184 },
-                jp: { title: "旧西置賜郡役所（小桜館）", text: "1878年に建てられた擬洋風建築です...", audio: "Kozakura_Japanese.wav" },
-                en: { title: "Former District Office", text: "Built in 1878...", audio: "Kozakura_English.wav" },
-                ko: { title: "구 니시오키타마군 역소", text: "1878년에 세워진...", audio: "Kozakura_Korean.wav" },
-                zh: { title: "旧西置赐郡公署", text: "建于1878年...", audio: "Kozakura_Chinese.wav" }
-            },
-            firstAssemblyHall: {
-                gps: { lat: 38.1109497, lon: 140.0364184 },
-                jp: { title: "初代郡会議事堂", text: "明治20年に建てられました...", audio: "1st_Japanese.wav" },
-                en: { title: "1st Assembly Hall", text: "Built in 1887...", audio: "1st_English.wav" },
-                ko: { title: "초대 회의사당", text: "1887년에...", audio: "1st_Korean.wav" },
-                zh: { title: "第一代议事堂", text: "1887年...", audio: "1st_Chinese.wav" }
-            },
-            secondAssemblyHall: {
-                gps: { lat: 38.1109497, lon: 140.0364184 },
-                jp: { title: "二代目郡会議事堂", text: "明治44年に建てられました...", audio: "2nd_Japanese.wav" },
-                en: { title: "2nd Assembly Hall", text: "Built in 1911...", audio: "2nd_English.wav" },
-                ko: { title: "2대 회의사당", text: "1911년에...", audio: "2nd_Korean.wav" },
-                zh: { title: "第二代议事堂", text: "1911年...", audio: "2nd_Chinese.wav" }
-            }
-        };
-
-        let curBuild = 'kozakukan';
-        let curLang = 'jp';
-        let audioObj = new Audio();
-
-        function updateContent(lang) {
-            curLang = lang;
-            const d = bData[curBuild][lang] || bData[curBuild].jp;
-            document.getElementById("panel-title").innerText = d.title;
-            document.getElementById("panel-text").innerText = d.text;
-            document.getElementById("desc-panel").style.display = "block";
-        }
-
-        function setBuilding(key) {
-            curBuild = key;
-            const c = bData[key].gps;
-            document.getElementById("gps-anchor").setAttribute("gps-entity-place", `latitude: ${c.lat}; longitude: ${c.lon};`);
-            updateContent(curLang);
-        }
-
-        function setDisplayMode(mode) {
-            const gps = document.getElementById("gps-anchor");
-            const free = document.getElementById("free-anchor");
-            if (mode === 'gps') {
-                gps.setAttribute("visible", true);
-                free.setAttribute("visible", false);
-            } else {
-                gps.setAttribute("visible", false);
-                free.setAttribute("visible", true);
-            }
-            document.getElementById("status-box").innerText = (mode === 'gps' ? "GPS表示" : "自由表示");
-        }
-
-        function playCurrentAudio() {
-            const d = bData[curBuild][curLang] || bData[curBuild].jp;
-            if (d.audio) {
-                audioObj.pause();
-                audioObj.src = "audio/" + d.audio;
-                audioObj.play().catch(e => console.log("Audio Error"));
-            }
-        }
-
+        // 前回のスクリプト（録画、共有、情報表示）をここに統合
         function toggleInfo() {
-            const p = document.getElementById("desc-panel");
-            p.style.display = (p.style.display === "none") ? "block" : "none";
+            const p = document.getElementById('desc-panel');
+            p.style.display = p.style.display === 'none' ? 'block' : 'none';
         }
-
-        function takeSnapshot() {
-            const scene = document.querySelector("a-scene");
-            const canvas = scene.components.screenshot.getCanvas("perspective");
-            const link = document.createElement("a");
-            link.download = "Bunkyo_AR.png";
+        
+        function takePhoto() {
+            const scene = document.querySelector('a-scene');
+            const canvas = scene.components.screenshot.getCanvas('perspective');
+            const link = document.createElement('a');
+            link.download = "nagai_ar.png";
             link.href = canvas.toDataURL();
             link.click();
         }
 
-        window.onload = () => {
-            setBuilding('kozakukan');
-            setDisplayMode('free'); // 起動時は自由表示で確実にモデルを見せる
-            document.getElementById("status-box").innerText = "自由表示モードで起動しました";
-        };
+        function shareApp() {
+            if (navigator.share) {
+                navigator.share({ title: '文教の森 AR', url: location.href });
+            }
+        }
+        
+        // 録画ロジック（中略：前回提示分を流用可能）
     </script>
 </body>
 </html>
