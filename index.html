@@ -3,134 +3,143 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>文教の森 AR 復元版</title>
+    <title>文教の森 AR ログ解析版</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background: #000; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; pointer-events: none; }
         .clickable { pointer-events: auto; }
-
-        /* UIデザイン */
-        .menu { position: absolute; display: flex; flex-direction: column; gap: 5px; }
-        button { padding: 12px; border-radius: 8px; border: none; background: rgba(255,255,255,0.9); font-weight: bold; cursor: pointer; font-size: 13px; }
-        .active-btn { background: #4CAF50 !important; color: white; }
-
+        .menu { position: absolute; display: flex; flex-direction: column; gap: 4px; }
+        button { padding: 10px; border-radius: 8px; border: none; background: white; font-weight: bold; font-size: 12px; }
         .top-left { top: 10px; left: 10px; }
-        .ctrl-left { top: 40%; left: 10px; }
-        .ctrl-right { top: 40%; right: 10px; }
-        .bottom-bar { position: absolute; bottom: 25px; width: 100%; display: flex; justify-content: center; gap: 12px; }
+        .ctrl-left { top: 35%; left: 10px; }
+        .ctrl-right { top: 35%; right: 10px; }
+        .bottom-bar { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 10px; }
         
-        /* ログ表示エリア（トラブル解析用） */
+        /* 強化版ログ表示パネル */
         #log-console { 
-            position: absolute; top: 10px; right: 10px; width: 200px; height: 100px; 
-            background: rgba(0,0,0,0.7); color: #0f0; font-size: 10px; padding: 5px; 
+            position: absolute; top: 10px; right: 10px; width: 220px; height: 130px; 
+            background: rgba(0,0,0,0.8); color: #0f0; font-family: monospace; font-size: 11px; padding: 8px; 
             overflow-y: auto; pointer-events: none; border: 1px solid #0f0;
         }
+        .log-val { color: #ff0; font-weight: bold; }
     </style>
 </head>
 
 <body>
     <div id="ui-layer">
-        <div id="log-console">システム起動中...</div>
+        <div id="log-console">
+            [STATUS] <span id="status-msg">起動中...</span><br>
+            [POS] X:<span id="val-px" class="log-val">0</span> Y:<span id="val-py" class="log-val">0</span> Z:<span id="val-pz" class="log-val">0</span><br>
+            [SCALE] <span id="val-sc" class="log-val">1.00</span><br>
+            --------------------<br>
+            <div id="log-history"></div>
+        </div>
 
         <div class="menu top-left clickable">
-            <button id="btn-all" class="active-btn" onclick="switchModel('all')">全体表示</button>
-            <button id="btn-kozakura" onclick="switchModel('kozakura')">小桜館</button>
-            <button id="btn-assembly1" onclick="switchModel('assembly1')">初代</button>
-            <button id="btn-assembly2" onclick="switchModel('assembly2')">二代目</button>
+            <button onclick="switchModel('all')">全体</button>
+            <button onclick="switchModel('kozakura')">小桜館</button>
+            <button onclick="switchModel('assembly1')">初代</button>
+            <button onclick="switchModel('assembly2')">二代目</button>
         </div>
 
         <div class="menu ctrl-left clickable">
-            <button onclick="moveModel('z', -1)">前へ</button>
-            <button onclick="moveModel('z', 1)">後へ</button>
-            <button onclick="moveModel('y', 0.5)">上へ</button>
-            <button onclick="moveModel('y', -0.5)">下へ</button>
+            <button onclick="moveModel('z', -1)">前へ (-Z)</button>
+            <button onclick="moveModel('z', 1)">後へ (+Z)</button>
+            <button onclick="moveModel('x', -1)">左へ (-X)</button>
+            <button onclick="moveModel('x', 1)">右へ (+X)</button>
+            <button onclick="moveModel('y', 1)">上へ (+Y)</button>
+            <button onclick="moveModel('y', -1)">下へ (-Y)</button>
         </div>
 
         <div class="menu ctrl-right clickable">
-            <button onclick="rotateModel(20)">右回転</button>
-            <button onclick="rotateModel(-20)">左回転</button>
-            <button onclick="scaleModel(1.2)">拡大</button>
-            <button onclick="scaleModel(0.8)">縮小</button>
+            <button onclick="rotateModel(30)">右回転</button>
+            <button onclick="rotateModel(-30)">左回転</button>
+            <button onclick="scaleModel(2)">倍増(x2)</button>
+            <button onclick="scaleModel(0.5)">半分(x0.5)</button>
+            <button onclick="resetPos()" style="background:#ff9800; color:white;">位置リセット</button>
         </div>
 
         <div class="bottom-bar clickable">
-            <button onclick="location.reload()" style="background:#ff4b4b; color:white;">🔄 再起動</button>
+            <button onclick="location.reload()" style="background:#f44336; color:white;">アプリ再読込</button>
         </div>
     </div>
 
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;" renderer="logarithmicDepthBuffer: true;">
-        <a-assets>
-            <img id="shadow-img" src="https://raw.githubusercontent.com/n5ro/aframe-extras/master/assets/shadow.png">
-        </a-assets>
-
-        <a-entity id="ar-anchor" position="0 -1.6 -5">
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+        <a-entity id="ar-anchor" position="0 -1.6 -5" scale="1 1 1">
             <a-entity id="main-model" gltf-model="Buildings-v3.glb"></a-entity>
-            <a-image id="shadow" src="#shadow-img" rotation="-90 0 0" scale="6 6 6" position="0 0.01 0" opacity="0.5"></a-image>
         </a-entity>
-
         <a-camera gps-camera rotation-reader></a-camera>
     </a-scene>
 
     <script>
-        // ログ出力関数
-        function writeLog(msg) {
-            const logEl = document.getElementById('log-console');
-            logEl.innerHTML += "<br>> " + msg;
-            logEl.scrollTop = logEl.scrollHeight;
-            console.log(msg);
-        }
-
-const appData = {
+        const appData = {
             all: "Buildings-v3.glb",
             kozakura: "Buildings-Gunyakusho.glb",
             assembly1: "Buildings-1st_Gunkai.glb",
-            assembly2: "Buildings-2st_Gunkai.glb" // GitHubの表記「2st」に合わせました
+            assembly2: "Buildings-2nd_Gunkai.glb"
         };
 
         const anchor = document.getElementById('ar-anchor');
         const model = document.getElementById('main-model');
 
-        // 建物切り替え
+        function updateLog(historyMsg = "") {
+            const pos = anchor.getAttribute('position');
+            const sc = anchor.getAttribute('scale');
+            document.getElementById('val-px').innerText = pos.x.toFixed(1);
+            document.getElementById('val-py').innerText = pos.y.toFixed(1);
+            document.getElementById('val-pz').innerText = pos.z.toFixed(1);
+            document.getElementById('val-sc').innerText = sc.x.toFixed(2);
+            
+            if(historyMsg) {
+                const hist = document.getElementById('log-history');
+                hist.innerHTML = "> " + historyMsg + "<br>" + hist.innerHTML;
+            }
+        }
+
         function switchModel(key) {
-            const fileName = appData[key];
-            writeLog("読込開始: " + fileName);
-            
-            model.setAttribute('gltf-model', fileName);
-            
-            // UI更新
-            document.querySelectorAll('.top-left button').forEach(b => b.classList.remove('active-btn'));
-            document.getElementById('btn-' + key).classList.add('active-btn');
+            model.setAttribute('gltf-model', appData[key]);
+            document.getElementById('status-msg').innerText = "読込中: " + key;
+            updateLog("モデル切替: " + key);
         }
 
-        // 調整関数
-        function moveModel(axis, val) { 
-            let p = anchor.getAttribute('position'); 
-            p[axis] += val; 
-            anchor.setAttribute('position', p); 
-            writeLog("位置変更: " + axis + "=" + p[axis].toFixed(1));
-        }
-        function rotateModel(deg) { 
-            let r = anchor.getAttribute('rotation'); 
-            r.y += deg; 
-            anchor.setAttribute('rotation', r); 
-            writeLog("回転: " + r.y + "度");
-        }
-        function scaleModel(f) { 
-            let s = anchor.getAttribute('scale'); 
-            s.x *= f; s.y *= f; s.z *= f; 
-            anchor.setAttribute('scale', s); 
-            writeLog("倍率: " + s.x.toFixed(2));
+        function moveModel(axis, val) {
+            let p = anchor.getAttribute('position');
+            p[axis] += val;
+            anchor.setAttribute('position', p);
+            updateLog("移動: " + axis + (val > 0 ? "+" : "") + val);
         }
 
-        // エラー検知
-        model.addEventListener('model-error', (e) => {
-            writeLog("エラー: ファイルが見つかりません");
-        });
+        function rotateModel(deg) {
+            let r = anchor.getAttribute('rotation');
+            r.y += deg;
+            anchor.setAttribute('rotation', r);
+            updateLog("回転: " + r.y + "度");
+        }
+
+        function scaleModel(f) {
+            let s = anchor.getAttribute('scale');
+            s.x *= f; s.y *= f; s.z *= f;
+            anchor.setAttribute('scale', s);
+            updateLog("倍率変更: x" + f);
+        }
+
+        function resetPos() {
+            anchor.setAttribute('position', '0 -1.6 -5');
+            anchor.setAttribute('scale', '1 1 1');
+            updateLog("位置・倍率を初期化");
+        }
+
         model.addEventListener('model-loaded', () => {
-            writeLog("読込成功！");
+            document.getElementById('status-msg').innerText = "読込成功！";
+            document.getElementById('status-msg').style.color = "#0f0";
+            updateLog("表示準備完了");
+        });
+
+        model.addEventListener('model-error', () => {
+            document.getElementById('status-msg').innerText = "読込失敗(404等)";
+            document.getElementById('status-msg').style.color = "#f00";
         });
     </script>
 </body>
