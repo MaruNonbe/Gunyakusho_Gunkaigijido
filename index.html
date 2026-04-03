@@ -94,11 +94,35 @@
     </a-scene>
 
     <script>
-        const appData = {
-            all: { model: "Buildings-v3.glb", jp: { title: "文教の森 全体像", text: "明治時代の郡役所と議事堂の配置です。" }, en: { title: "Full View", text: "Layout of Meiji-era buildings." }, ko: { title: "전체 모습", text: "메이지 시대의 배치입니다." }, zh: { title: "全景", text: "重现了明治时代的布局。" } },
-            kozakura: { model: "Buildings-Gunyakusho.glb", jp: { title: "旧西置賜郡役所", text: "1878年築。最古の郡役所建築。" }, en: { title: "Former District Office", text: "Built in 1878." }, ko: { title: "구 군청", text: "1878년 완공." }, zh: { title: "旧郡公署", text: "建于1878年。" } },
-            assembly1: { model: "Buildings-1st_Gunkai.glb", jp: { title: "初代郡会議事堂", text: "明治20年築の洋風木造建築。" }, en: { title: "1st Assembly Hall", text: "Built in 1887." }, ko: { title: "초대 의사당", text: "1887년 완공." }, zh: { title: "第一代议事堂", text: "建于1887年。" } },
-            assembly2: { model: "Buildings-2nd_Gunkai.glb", jp: { title: "二代目郡会議事堂", text: "明治44年に新築された議事堂。" }, en: { title: "2nd Assembly Hall", text: "Built in 1911." }, ko: { title: "2대 의사당", text: "1911년 완공." }, zh: { title: "第二代议事堂", text: "建于1911年。" } }
+    const appData = {
+            all: { 
+                model: "Buildings-v3.glb", 
+                jp: { title: "文教の森 全体像", text: "明治時代の郡役所と議事堂の配置です。" }, 
+                en: { title: "Full View", text: "Layout of Meiji-era buildings." }, 
+                ko: { title: "전체 모습", text: "메이지 시대의 배치입니다." }, 
+                zh: { title: "全景", text: "重现了明治时代的布局。" } 
+            },
+            kozakura: { 
+                model: "Buildings-Gunyakusho.glb", 
+                jp: { title: "旧西置賜郡役所", text: "1878年築。最古の郡役所建築。" }, 
+                en: { title: "Former District Office", text: "Built in 1878." }, 
+                ko: { title: "구 군청", text: "1878년 완공." }, 
+                zh: { title: "旧郡公署", text: "建于1878年。" } 
+            },
+            assembly1: { 
+                model: "Buildings-1st_Gunkai.glb", 
+                jp: { title: "初代郡会議事堂", text: "明治20年築の洋風木造建築。" }, 
+                en: { title: "1st Assembly Hall", text: "Built in 1887." }, 
+                ko: { title: "초대 의사당", text: "1887년 완공." }, 
+                zh: { title: "第一代议事堂", text: "建于1887年。" } 
+            },
+            assembly2: { 
+                model: "Buildings-2nd_Gunkai.glb", 
+                jp: { title: "二代目郡会議事堂", text: "明治44年に新築された議事堂。" }, 
+                en: { title: "2nd Assembly Hall", text: "Built in 1911." }, 
+                ko: { title: "2대 의사당", text: "1911년 완공." }, 
+                zh: { title: "第二代议事堂", text: "建于1911年。" } 
+            }
         };
 
         let currentMode = "all";
